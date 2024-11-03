@@ -1,0 +1,8 @@
+flask
+numpy
+opencv-python-headless
+tensorflow
+keras
+scikit-learn
+pymongo
+python-dotenv

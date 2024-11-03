@@ -1,0 +1,16 @@
+.env
+
+/lib
+*.egg-info
+__pycache__/
+*.pyc
+*.pyo
+
+*.jpg
+*.png   
+
+label_map.json
+model.h5
+
+venv/
+.vscode/
