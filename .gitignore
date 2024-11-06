@@ -11,6 +11,7 @@ __pycache__/
 
 label_map.json
 model.h5
+facenet_keras.h5
 pretrained_autoencoder.weights.h5
 model.keras
 
