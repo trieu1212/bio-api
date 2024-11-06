@@ -6,11 +6,11 @@ import cv2
 import tensorflow as tf
 
 from keras._tf_keras.keras.models import Sequential, Model  
-from keras._tf_keras.keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Dropout, Input
+from keras._tf_keras.keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Dropout, BatchNormalization
 from keras._tf_keras.keras.optimizers import Adam
 from keras._tf_keras.keras.preprocessing.image import load_img, img_to_array
   
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 EPOCHS = 20
 
 def load_data(data_dir):
@@ -38,17 +38,21 @@ def create_model(num_classes):
 
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
-    x = Dense(1024, activation='relu')(x)
+    x = Dense(1024, activation='relu', kernel_regularizer=keras.regularizers.l2(0.001))(x) 
+    x = BatchNormalization()(x) 
     x = Dropout(0.5)(x)
+    x = Dense(512, activation='relu', kernel_regularizer=keras.regularizers.l2(0.001))(x) 
+    x = BatchNormalization()(x) 
 
-    predictions = Dense(num_classes, activation='softmax')(x) 
+    predictions = Dense(num_classes, activation='softmax')(x)
+
 
     model = Model(inputs=base_model.input, outputs=predictions)
 
     for layer in base_model.layers:
         layer.trainable = False
 
-    for layer in base_model.layers[-50:]:
+    for layer in base_model.layers[-30:]:
         layer.trainable = True
 
     return model

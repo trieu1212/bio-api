@@ -4,64 +4,59 @@ import cv2
 import pickle
 from mtcnn import MTCNN
 import numpy as np
+from deepface import DeepFace
 
 from keras._tf_keras.keras.models import load_model
 # from config import Config
 from sklearn.metrics.pairwise import cosine_similarity
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, '../data/faces')
-MODEL_PATH = 'facenet_keras.h5'
+MODEL_PATH = 'saved_models/facenet_keras.h5'
 EMBEDDINGS_PATH = 'embeddings.pickle'
 THRESHOLD = 0.7
 
-face_model = load_model(MODEL_PATH) 
+# face_model = load_model(MODEL_PATH) 
 
 detector = MTCNN()
 
-def get_embedding(face_pixels):  
-    face_pixels = np.asarray(face_pixels)
-    face_pixels = cv2.resize(face_pixels, (160, 160))
-    mean, std = face_pixels.mean(), face_pixels.std()
-    face_pixels = (face_pixels - mean) / std
-    samples = np.expand_dims(face_pixels, axis=0)
-    yhat = face_model.predict(samples)
-    return yhat[0]
+def get_embedding(img):
+    return DeepFace.represent(img, model_name = 'Facenet', enforce_detection=False)
 
-def detect_and_extract_embeddings():
-    embeddings = []
-    labels = []
-    label_map = {}
-    label_counter = 0
+def detect_and_extract_embedding(img):
+        try:
+            results = detector.detect_faces(img)
+            if results:
+                x1, y1, width, height = results[0]['box']
+                x1, y1 = abs(x1), abs(y1)
+                x2, y2 = x1 + width, y1 + height
+                face = img[y1:y2, x1:x2]
+                return get_embedding(face)
+            else:
+                return None
 
-    for person_dir in os.listdir(DATA_DIR):
-        person_path = os.path.join(DATA_DIR, person_dir)
-        if os.path.isdir(person_path):
-            if person_dir not in label_map:
-                label_map[person_dir] = str(label_counter) 
-                label_counter += 1
-            for img_file in os.listdir(person_path):
-                try: 
-                    img = cv2.imread(os.path.join(person_path, img_file))
-                    if img is None: continue 
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    results = detector.detect_faces(img)
-                    if results:
-                        x, y, w, h = results[0]['box']
-                        face = img[y:y+h, x:x+w]
-                        emb = get_embedding(face)
-                        embeddings.append(emb)
-                        labels.append(label_map[person_dir])
-                except Exception as e:
-                    print(f"Lỗi khi xử lý ảnh {os.path.join(person_path, img_file)}: {e}")
+        except Exception as e:
+            return None
 
-    with open(EMBEDDINGS_PATH, 'wb') as f:
-        pickle.dump((embeddings, labels, label_map), f)
+def train_embeddings(data_dir=DATA_DIR, embeddings_path=EMBEDDINGS_PATH):
+    embeddings = {}
+    for user_folder in os.listdir(data_dir):
+        user_folder_path = os.path.join(data_dir, user_folder)
+        if os.path.isdir(user_folder_path):
+            embeddings[user_folder] = []
+            for filename in os.listdir(user_folder_path):
+                if filename.endswith(('.jpg', '.png', '.jpeg')):
+                    image_path = os.path.join(user_folder_path, filename)
+                    try:
+                        img = cv2.imread(image_path)
+                        if img is None: continue
+                        emb = detect_and_extract_embedding(img)
+                        if emb is not None: 
+                           embeddings[user_folder].append(emb)
+                    except Exception as e:
+                        print(f"Lỗi khi xử lý ảnh {image_path}: {e}")
 
-    return embeddings, labels, label_map
-
-def train_embeddings():
-    detect_and_extract_embeddings()
-    print('train successfully!')
+    with open(embeddings_path, 'wb') as f:
+        pickle.dump(embeddings, f)
 
 def verify_face(image, known_embeddings, threshold=THRESHOLD):
     try:

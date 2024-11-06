@@ -10,10 +10,8 @@ from sklearn.model_selection import train_test_split
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, '../data/faces')
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 EPOCHS = 50
-MODEL_PATH = 'model.keras'
-
 
 
 def train_model(data_dir, epochs=10):
@@ -25,45 +23,52 @@ def train_model(data_dir, epochs=10):
     num_classes = len(label_map)
     print(f"Số lớp: {num_classes}")
 
-    model = create_model(num_classes)
-    model.compile(optimizer=Adam(learning_rate=1e-4), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-
     images = images / 255.0
 
     X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2, random_state=42)
     
     datagen = ImageDataGenerator(
-        rotation_range=45,
-        width_shift_range=0.3,
-        height_shift_range=0.3,
-        shear_range=0.2,
-        zoom_range=0.2,
+        rotation_range=45,    
+        width_shift_range=0.2,    
+        height_shift_range=0.2,   
+        shear_range=0.2,          
+        zoom_range=0.2,           
         horizontal_flip=True,
-        brightness_range=[0.8, 1.2],
-        channel_shift_range=20,
+        brightness_range=[0.5, 1.5],  
+        channel_shift_range=20,   
         fill_mode='nearest'
     )
     
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6) 
     early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
+    model = create_model(num_classes)
+
     for layer in model.layers[:-1]:
         layer.trainable = False
 
+    model.compile(optimizer=Adam(learning_rate=1e-3), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     model.fit(datagen.flow(X_train, y_train, batch_size=BATCH_SIZE),
               validation_data=(X_val, y_val),
-              epochs=5, callbacks=[reduce_lr])
+              epochs=10, callbacks=[reduce_lr])
+
+    for layer in model.layers[-100:]: 
+        layer.trainable = True
+
+    model.compile(optimizer=Adam(learning_rate=1e-4), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    model.fit(datagen.flow(X_train, y_train, batch_size=BATCH_SIZE),
+              validation_data=(X_val, y_val),
+              epochs=20, callbacks=[reduce_lr])
     
     for layer in model.layers:
         layer.trainable = True
 
     model.compile(optimizer=Adam(learning_rate=1e-5), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    
     model.fit(datagen.flow(X_train, y_train, batch_size=BATCH_SIZE),
-              validation_data=(X_val, y_val),
-              epochs=epochs-5, 
-              callbacks=[reduce_lr, early_stopping])
-
+                validation_data=(X_val, y_val),
+                epochs=epochs - 30, 
+                callbacks=[reduce_lr, early_stopping])
+    
     model.save('saved_models/model.keras')
 
     return label_map

@@ -16,4 +16,5 @@ pretrained_autoencoder.weights.h5
 model.keras
 
 venv/
+.venv_embedding/
 .vscode/
