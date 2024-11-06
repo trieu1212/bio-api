@@ -47,13 +47,10 @@ def verify_face():
             next_file_number = latest_file + 1
         else:
             next_file_number = 1
-
-        image_copy = image.copy()
-        if image_copy is None:
-            print("Image copy is invalid.")
-
+        
+        save_image = (image[0] * 255).astype(np.uint8)
         image_path = os.path.join(user_dir, f'{next_file_number}.jpg')
-        cv2.imwrite(image_path, image_copy) 
+        cv2.imwrite(image_path, save_image) 
 
         print(f"Đã lưu ảnh mới vào: {image_path}")
         # train_model(DATA_DIR, epochs=50)
