@@ -34,7 +34,7 @@ def load_data(data_dir):
     return np.array(images), np.array(labels), label_map
 
 def create_model(num_classes):
-    base_model = keras.applications.MobileNetV2(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+    base_model = keras.applications.MobileNet(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
 
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
@@ -48,7 +48,7 @@ def create_model(num_classes):
     for layer in base_model.layers:
         layer.trainable = False
 
-    for layer in base_model.layers[-20:]:
+    for layer in base_model.layers[-50:]:
         layer.trainable = True
 
     return model
