@@ -7,8 +7,8 @@ from keras._tf_keras.keras.callbacks import ReduceLROnPlateau
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, '../data/faces')
-BATCH_SIZE = 8
-EPOCHS = 30
+BATCH_SIZE = 32
+EPOCHS = 50
 MODEL_PATH = 'model.keras'
 
 

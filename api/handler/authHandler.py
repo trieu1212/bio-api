@@ -1,6 +1,5 @@
 from cProfile import label
 import os
-import subprocess
 from flask import jsonify, request
 import cv2
 import numpy as np
@@ -15,10 +14,7 @@ model = load_model('saved_models/model.keras')
 
 label_map = {}
 
-
 def verify_face():
-    with open('label_map.json', 'r') as f:
-        label_map = json.load(f)
     model = load_model('saved_models/model.keras')
     with open('label_map.json', 'r') as f:
         label_map = json.load(f)
@@ -28,7 +24,6 @@ def verify_face():
 
     image = request.files['image']
     image = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
-    image_copy = image.copy()
     if image is None:
         return jsonify({'error': 'Invalid image format'}), 400
 
@@ -42,34 +37,52 @@ def verify_face():
 
     if float(confidence) > float(Config.THRESHOLD):
         label = [user for user, label in label_map.items() if label == pred_label][0]
-        label = label.split('_')[0]
-        print("Detected label:", label)
-
         user = userService.get_user_by_label(label)
-        if user:
-            id, username = user.get('_id'), user.get('username')
-            user_dir = os.path.join(Config.FACES_DIR, f"{id}_{username}")
-            os.makedirs(user_dir, exist_ok=True)
+        user_dir = os.path.join(Config.FACES_DIR, f"{label}")
+        os.makedirs(user_dir, exist_ok=True)
 
-            existing_files = [f for f in os.listdir(user_dir) if f.endswith('.jpg')]
-            if existing_files:
-                latest_file = max([int(f.split('.')[0]) for f in existing_files])
-                next_file_number = latest_file + 1
-            else:
-                next_file_number = 1
-
-            image_path = os.path.join(user_dir, f'{next_file_number}.jpg')
-            cv2.imwrite(image_path, image_copy) 
-
-            print(f"Saved new image at: {image_path}")
-            train_model(DATA_DIR, epochs=50)
-
-            result = {'status': 'success', 'user': username}
+        existing_files = [f for f in os.listdir(user_dir) if f.endswith('.jpg')]
+        if existing_files:
+            latest_file = max([int(f.split('.')[0]) for f in existing_files])
+            next_file_number = latest_file + 1
         else:
-            result = {'status': 'failure', 'error': 'User not found'}
-    else:
-        result = {'status': 'failure', 'error': 'Confidence level too low'}
+            next_file_number = 1
 
+        image_copy = image.copy()
+        if image_copy is None:
+            print("Image copy is invalid.")
+
+        image_path = os.path.join(user_dir, f'{next_file_number}.jpg')
+        cv2.imwrite(image_path, image_copy) 
+
+        print(f"Đã lưu ảnh mới vào: {image_path}")
+        # train_model(DATA_DIR, epochs=50)
+
+    probabilities = {}
+    for i, prob in enumerate(pred[0]):
+        for key, value in label_map.items():
+            if int(value) == i:
+              probabilities[key.split('_')[1]] = float(prob)
+              break 
+
+    print("Xác suất cho từng lớp:")
+    for user_name, probability in probabilities.items():
+        print(f"  {user_name}: {probability:.4f}")
+
+    result = {
+        'status': 'success' if user else 'failure',
+        'username': user.get('username') if user else None,
+        'user_id': str(user.get('_id')) if user else None,
+        'label': label,
+        'confidence': float(confidence),
+    }
+    
+    if not user:
+        if float(confidence) <= float(Config.THRESHOLD):
+            result['error'] = 'Confidence level too low'
+        else:
+            result['error'] = 'User not found'
+    
     return jsonify(result), 200
 
 def register_face():
