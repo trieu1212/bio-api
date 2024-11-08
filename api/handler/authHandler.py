@@ -2,6 +2,7 @@ import pickle
 import os
 from flask import jsonify, request
 import cv2
+import traceback
 import numpy as np
 import json
 from deepface import DeepFace
@@ -10,12 +11,15 @@ from config import Config
 from api.service import userService
 from model.face_recognize import detect_and_extract_embedding
 from sklearn.metrics.pairwise import cosine_similarity
+from model.face_recognize import train_embeddings, normalize_embedding
 
 
 DATA_DIR = '/home/trieu/project/bio-python/data/faces'
-EMBEDDINGS_PATH = '/home/trieu/project/bio-python/embeddings.pickle'
-THRESHOLD = 0.7
-label_map = {}
+EMBEDDINGS_PATH = '/home/trieu/project/bio-python/embeddings'
+THRESHOLD = 0.3
+
+
+
 
 def verify_face():
     if 'image' not in request.files:
@@ -31,21 +35,39 @@ def verify_face():
         if not embedding_obj:
             return jsonify({'error': 'No face detected'}), 400
         embedding = embedding_obj[0]["embedding"]
+        if isinstance(embedding, dict):
+            return jsonify({'error': 'Embedding extraction failed: Unexpected format'}), 500
+        embedding = normalize_embedding(np.array(embedding, dtype=float))
     except Exception as e:
         return jsonify({'error': f'Embedding extraction failed: {str(e)}'}), 500
-
-    with open(EMBEDDINGS_PATH, 'rb') as f:
-        known_embeddings = pickle.load(f)
 
     best_match = None
     highest_similarity = 0
 
-    for user, embeddings_list in known_embeddings.items():
-        for known_embedding in embeddings_list:
-            similarity = cosine_similarity([embedding], [known_embedding])[0][0]
-            if similarity > highest_similarity:
-                highest_similarity = similarity
-                best_match = user
+    for filename in os.listdir(EMBEDDINGS_PATH):
+        if filename.endswith(".pkl"):
+            file_path = os.path.join(EMBEDDINGS_PATH, filename)
+            try:
+                with open(file_path, 'rb') as f:
+                    known_embeddings = pickle.load(f)
+
+                for known_embedding in known_embeddings:
+                    if isinstance(known_embedding, dict):
+                        print(f"Invalid format in {filename}, skipping this embedding: {known_embedding}")
+                        continue
+
+                    known_embedding = normalize_embedding(np.array(known_embedding, dtype=float))
+                    similarity = float(cosine_similarity([embedding], [known_embedding])[0][0])
+                    if similarity > highest_similarity:
+                        highest_similarity = similarity
+                        best_match = filename[:-4] 
+
+            except Exception as e:
+                print(f"Error loading or comparing embeddings from {filename}: {e}")
+                traceback.print_exc()
+                continue  
+
+    print(f"Best match: {best_match}, similarity: {highest_similarity}")
 
     if highest_similarity > THRESHOLD:
         return jsonify({
@@ -77,31 +99,8 @@ def register_face():
     if not images or len(images) < 10:
         return jsonify({'error': 'At least 10 images are required'}), 400
     
-    embeddings = []
-    for i, image_file in enumerate(images):
-        image_data = np.frombuffer(image_file.read(), np.uint8)
-        image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
-        
-        try:
-            embedding_obj = DeepFace.represent(image, model_name="Facenet")
-            if embedding_obj:
-                embedding = embedding_obj[0]["embedding"]
-                embeddings.append(embedding)
-                image_path = os.path.join(user_dir, f'{i + 1}.jpg')
-                cv2.imwrite(image_path, image)
-        except Exception as e:
-            return jsonify({'error': f'Embedding extraction failed for image {i + 1}: {str(e)}'}), 500
+    user_folder, _ = train_embeddings(id, username, images)
 
-    if os.path.exists(EMBEDDINGS_PATH):
-        with open(EMBEDDINGS_PATH, 'rb') as f:
-            all_embeddings = pickle.load(f)
-    else:
-        all_embeddings = {}
-
-    all_embeddings[f"{id}_{username}"] = embeddings
-    with open(EMBEDDINGS_PATH, 'wb') as f:
-        pickle.dump(all_embeddings, f)
-
-    userService.update_label_user(f"{id}_{username}", id)
+    userService.update_label_user(user_folder, id)
     
     return jsonify({'message': 'Face registered successfully'}), 200

@@ -2,7 +2,7 @@ from curses.ascii import EM
 import os
 import cv2
 import pickle
-from mtcnn import MTCNN
+import random
 import numpy as np
 from deepface import DeepFace
 
@@ -12,70 +12,73 @@ from sklearn.metrics.pairwise import cosine_similarity
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, '../data/faces')
 MODEL_PATH = 'saved_models/facenet_keras.h5'
-EMBEDDINGS_PATH = 'embeddings.pickle'
+EMBEDDINGS_PATH = 'embeddings'
 THRESHOLD = 0.7
 
-# face_model = load_model(MODEL_PATH) 
-
-detector = MTCNN()
 
 def get_embedding(img):
     return DeepFace.represent(img, model_name = 'Facenet', enforce_detection=False)
 
 def detect_and_extract_embedding(img):
-        try:
-            results = detector.detect_faces(img)
-            if results:
-                x1, y1, width, height = results[0]['box']
-                x1, y1 = abs(x1), abs(y1)
-                x2, y2 = x1 + width, y1 + height
-                face = img[y1:y2, x1:x2]
-                return get_embedding(face)
-            else:
-                return None
-
-        except Exception as e:
+    try:
+        detected_faces = DeepFace.extract_faces(img, detector_backend='retinaface')
+        if detected_faces:
+            face_img = detected_faces[0]["face"]
+            if face_img.shape[:2] != (160, 160):
+                face_img = cv2.resize(face_img, (160, 160))
+            embedding_obj = get_embedding(face_img)
+            return np.array(embedding_obj[0]["embedding"], dtype=float) if embedding_obj else None
+        else:
+            print("Không phát hiện khuôn mặt.")
             return None
+    except Exception as e:
+        print(f"Lỗi khi phát hiện hoặc trích xuất embedding: {e}")
+        return None
 
-def train_embeddings(data_dir=DATA_DIR, embeddings_path=EMBEDDINGS_PATH):
-    embeddings = {}
-    for user_folder in os.listdir(data_dir):
-        user_folder_path = os.path.join(data_dir, user_folder)
-        if os.path.isdir(user_folder_path):
-            embeddings[user_folder] = []
-            for filename in os.listdir(user_folder_path):
-                if filename.endswith(('.jpg', '.png', '.jpeg')):
-                    image_path = os.path.join(user_folder_path, filename)
-                    try:
-                        img = cv2.imread(image_path)
-                        if img is None: continue
-                        emb = detect_and_extract_embedding(img)
-                        if emb is not None: 
-                           embeddings[user_folder].append(emb)
-                    except Exception as e:
-                        print(f"Lỗi khi xử lý ảnh {image_path}: {e}")
+def train_embeddings(user_id, username, images,embeddings_path=EMBEDDINGS_PATH):
+    embeddings = []
+    user_folder = f"{user_id}_{username}"
+    user_dir = os.path.join(DATA_DIR, user_folder)
+    os.makedirs(user_dir, exist_ok=True)
 
-    with open(embeddings_path, 'wb') as f:
+    for i, image_file in enumerate(images): 
+        try:
+            img = cv2.imdecode(np.frombuffer(image_file.read(), np.uint8), cv2.IMREAD_COLOR)
+            if img is None:
+                print(f"Lỗi khi đọc ảnh {i + 1}")
+                continue
+            augmented_img = augment_image(img)
+            embedding = detect_and_extract_embedding(augmented_img)
+            
+            if embedding is not None:
+                embeddings.append(normalize_embedding(embedding))
+                image_path = os.path.join(user_dir, f"{i + 1}.jpg")
+                cv2.imwrite(image_path, img)
+        except Exception as e:
+            print(f"Lỗi khi xử lý ảnh {i + 1}: {e}")
+            continue
+
+    embeddings_file = os.path.join(embeddings_path, f"{user_folder}.pkl") 
+    with open(embeddings_file, 'wb') as f:
         pickle.dump(embeddings, f)
 
-def verify_face(image, known_embeddings, threshold=THRESHOLD):
-    try:
-        embedding = get_embedding(image) 
-    except IndexError:
-        return "unknown", 0
+    return user_folder, embeddings
 
-    best_match = None
-    highest_similarity = 0
+def normalize_embedding(embedding):
+    return embedding / np.linalg.norm(embedding)
 
-    for user, known_embedding_list in known_embeddings.items():
-        for known_embedding in known_embedding_list:
-            similarity = cosine_similarity([embedding], [known_embedding])[0][0] 
-            if similarity > highest_similarity:
-                highest_similarity = similarity
-                best_match = user
+def augment_image(img):
+    angle = random.uniform(-10, 10)
+    M = cv2.getRotationMatrix2D((img.shape[1] // 2, img.shape[0] // 2), angle, 1)
+    img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
 
-    if highest_similarity > threshold:
-        return best_match, highest_similarity
-    else:
-        return "unknown", highest_similarity
+    brightness = random.uniform(0.8, 1.2)
+    img = np.clip(img * brightness, 0, 255).astype(np.uint8)
 
+    if random.choice([True, False]):
+        img = cv2.GaussianBlur(img, (5, 5), 0)
+
+    if random.choice([True, False]):
+        img = cv2.flip(img, 1)
+
+    return img
