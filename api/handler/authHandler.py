@@ -15,7 +15,7 @@ from model.face_recognize import train_embeddings, normalize_embedding
 
 
 DATA_DIR = '/home/trieu/project/bio-python/data/faces'
-EMBEDDINGS_PATH = '/home/trieu/project/bio-python/embeddings'
+EMBEDDINGS_PATH = Config.EMBEDDINGS_DIR
 THRESHOLD = 0.3
 
 
@@ -68,6 +68,7 @@ def verify_face():
     print(f"Best match: {best_match}, similarity: {highest_similarity}")
 
     if highest_similarity > THRESHOLD:
+        train_embeddings(best_match.split('_')[0], best_match.split('_')[1], [image])
         return jsonify({
             'status': 'success',
             'user': best_match,
@@ -94,8 +95,8 @@ def register_face():
     os.makedirs(user_dir, exist_ok=True)
 
     images = request.files.getlist('images')
-    if not images or len(images) < 10:
-        return jsonify({'error': 'At least 10 images are required'}), 400
+    if not images or len(images) < 3:
+        return jsonify({'error': 'At least 3 images are required'}), 400
     
     user_folder, embeddings = train_embeddings(id, username, images)
     print(f"Embeddings: {embeddings}")
