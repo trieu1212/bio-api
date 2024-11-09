@@ -26,6 +26,7 @@ def detect_and_extract_embedding(img):
             face_img = detected_faces[0]["face"]
             if face_img.shape[:2] != (160, 160):
                 face_img = cv2.resize(face_img, (160, 160))
+            print(detected_faces)
             embedding_obj = get_embedding(face_img)
             return np.array(embedding_obj[0]["embedding"], dtype=float) if embedding_obj else None
         else:
@@ -47,8 +48,9 @@ def train_embeddings(user_id, username, images,embeddings_path=EMBEDDINGS_PATH):
             if img is None:
                 print(f"Lỗi khi đọc ảnh {i + 1}")
                 continue
-            augmented_img = augment_image(img)
-            embedding = detect_and_extract_embedding(augmented_img)
+
+            # augmented_img = augment_image(img)
+            embedding = detect_and_extract_embedding(img)
             
             if embedding is not None:
                 embeddings.append(normalize_embedding(embedding))
@@ -57,6 +59,10 @@ def train_embeddings(user_id, username, images,embeddings_path=EMBEDDINGS_PATH):
         except Exception as e:
             print(f"Lỗi khi xử lý ảnh {i + 1}: {e}")
             continue
+
+    if embeddings:
+        average_embedding = calculate_average_embedding(embeddings)
+        embeddings = [average_embedding]
 
     embeddings_file = os.path.join(embeddings_path, f"{user_folder}.pkl") 
     with open(embeddings_file, 'wb') as f:
@@ -67,18 +73,32 @@ def train_embeddings(user_id, username, images,embeddings_path=EMBEDDINGS_PATH):
 def normalize_embedding(embedding):
     return embedding / np.linalg.norm(embedding)
 
+def calculate_average_embedding(embeddings):
+    average_embedding = np.mean(embeddings, axis=0)
+    return average_embedding / np.linalg.norm(average_embedding)
+
 def augment_image(img):
+    # Rotate
     angle = random.uniform(-10, 10)
     M = cv2.getRotationMatrix2D((img.shape[1] // 2, img.shape[0] // 2), angle, 1)
     img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
 
+    # Brightness adjustment
     brightness = random.uniform(0.8, 1.2)
     img = np.clip(img * brightness, 0, 255).astype(np.uint8)
 
+    # Add Gaussian blur
     if random.choice([True, False]):
         img = cv2.GaussianBlur(img, (5, 5), 0)
 
+    # Flip horizontally
     if random.choice([True, False]):
         img = cv2.flip(img, 1)
+    
+    # Shear Transformation (optional)
+    if random.choice([True, False]):
+        shear = random.uniform(-0.2, 0.2)
+        M = np.float32([[1, shear, 0], [0, 1, 0]])
+        img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
 
     return img

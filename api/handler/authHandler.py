@@ -19,8 +19,6 @@ EMBEDDINGS_PATH = '/home/trieu/project/bio-python/embeddings'
 THRESHOLD = 0.3
 
 
-
-
 def verify_face():
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
@@ -99,8 +97,8 @@ def register_face():
     if not images or len(images) < 10:
         return jsonify({'error': 'At least 10 images are required'}), 400
     
-    user_folder, _ = train_embeddings(id, username, images)
-
+    user_folder, embeddings = train_embeddings(id, username, images)
+    print(f"Embeddings: {embeddings}")
     userService.update_label_user(user_folder, id)
     
     return jsonify({'message': 'Face registered successfully'}), 200
