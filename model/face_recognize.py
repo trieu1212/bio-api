@@ -1,4 +1,3 @@
-from curses.ascii import EM
 import os
 import cv2
 import pickle

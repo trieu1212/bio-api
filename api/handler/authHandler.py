@@ -1,5 +1,6 @@
 import os
 from utils.jwt import gen_jwt_token
+from utils.hashPassword import check_password
 from flask import jsonify, request
 from config import Config
 from api.service import userService
@@ -55,3 +56,25 @@ def register_face():
     userService.update_label_user(user_folder, id)
     
     return jsonify({'message': 'Face registered successfully'}), 200
+
+def login():
+    email = request.form.get('email')
+    password = request.form.get('password')
+    if not email:
+        return jsonify({'error': 'No email provided'}), 400
+    if not password:
+        return jsonify({'error': 'No password provided'}), 400
+
+    user = userService.get_user_by_email(email)
+    if user is None:
+        return jsonify({'error': 'User not found'}), 400
+    
+    if not check_password(password, user['password'].encode('utf-8')):
+        return jsonify({'error': 'Invalid password'}), 400
+
+    token = gen_jwt_token(user)
+    return jsonify({
+        'status': 'success',
+        'user': user,
+        'token': token
+    }), 200
