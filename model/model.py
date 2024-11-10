@@ -1,51 +1,58 @@
+import json
 import os
+import keras
 import numpy as np
 import cv2
+import tensorflow as tf
 
-from keras._tf_keras.keras.models import Sequential
-from keras._tf_keras.keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Dropout
+from keras._tf_keras.keras.models import Sequential, Model  
+from keras._tf_keras.keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense, Dropout, BatchNormalization
 from keras._tf_keras.keras.optimizers import Adam
-
-DATA_DIR = 'data/faces'   
-IMG_SIZE = (128, 128)     
-BATCH_SIZE = 32
+from keras._tf_keras.keras.preprocessing.image import load_img, img_to_array
+  
+BATCH_SIZE = 8
 EPOCHS = 20
 
 def load_data(data_dir):
     images = []
     labels = []
     label_map = {}   
-    label_count = 0 
+    label_counter = 0 
 
-    for label_name in os.listdir(data_dir):
-        user_dir = os.path.join(data_dir, label_name)
-        if os.path.isdir(user_dir):
-            if label_name not in label_map:
-                label_map[label_name] = label_count
-                label_count += 1
-            label = label_map[label_name]
-
-            for image_name in os.listdir(user_dir):
-                image_path = os.path.join(user_dir, image_name)
-                image = cv2.imread(image_path)
-                if image is not None:
-                    image = cv2.resize(image, IMG_SIZE)
-                    images.append(image)
-                    labels.append(label)
+    for person_dir in os.listdir(data_dir):
+        person_path = os.path.join(data_dir, person_dir)
+        if os.path.isdir(person_path):
+            if person_dir not in label_map:
+                label_map[person_dir] = label_counter
+                label_counter += 1
+            for img_file in os.listdir(person_path):
+                img = cv2.imread(os.path.join(person_path, img_file))
+                img = cv2.resize(img, (224, 224)) 
+                images.append(img)
+                labels.append(label_map[person_dir])
 
     return np.array(images), np.array(labels), label_map
 
 def create_model(num_classes):
-    model = Sequential([
-        Conv2D(32, (3, 3), activation='relu', input_shape=(IMG_SIZE[0], IMG_SIZE[1], 3)),
-        MaxPooling2D(pool_size=(2, 2)),
-        Conv2D(64, (3, 3), activation='relu'),
-        MaxPooling2D(pool_size=(2, 2)),
-        Conv2D(128, (3, 3), activation='relu'),
-        MaxPooling2D(pool_size=(2, 2)),
-        GlobalAveragePooling2D(),
-        Dense(128, activation='relu'),
-        Dropout(0.5),
-        Dense(num_classes, activation='softmax')
-    ])
+    base_model = keras.applications.MobileNet(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(1024, activation='relu', kernel_regularizer=keras.regularizers.l2(0.001))(x) 
+    x = BatchNormalization()(x) 
+    x = Dropout(0.5)(x)
+    x = Dense(512, activation='relu', kernel_regularizer=keras.regularizers.l2(0.001))(x) 
+    x = BatchNormalization()(x) 
+
+    predictions = Dense(num_classes, activation='softmax')(x)
+
+
+    model = Model(inputs=base_model.input, outputs=predictions)
+
+    for layer in base_model.layers:
+        layer.trainable = False
+
+    for layer in base_model.layers[-30:]:
+        layer.trainable = True
+
     return model

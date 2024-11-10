@@ -8,9 +8,15 @@ __pycache__/
 
 *.jpg
 *.png   
+*.pkl
 
 label_map.json
 model.h5
+facenet_keras.h5
+pretrained_autoencoder.weights.h5
+model.keras
 
 venv/
+.venv_embedding/
 .vscode/
+embeddings/

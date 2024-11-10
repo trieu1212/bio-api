@@ -1,5 +1,3 @@
-from flask import jsonify, request
-from api.entity import userEntity
 from api.entity.userEntity import UserEntity
 
 
@@ -11,7 +9,6 @@ def create_user(user_data):
         role=user_data["role"]
     )
     new_user.save()
-    print(new_user.to_dictionary().get("_id"))
     return {
         "id": str(new_user._id), 
         "username": new_user.username,
@@ -24,8 +21,10 @@ def update_label_user(label, id):
     user = UserEntity.find_by_id(id)
     if user:
         user.label = label
-        user.save()
-        return user.to_dictionary()
+        user.save(update=True)
+        user_dict = user.to_dictionary()
+        id, username, email, role, label = user.to_dictionary().get("_id"), user.to_dictionary().get("username"), user.to_dictionary().get("email"), user.to_dictionary().get("role"), user.to_dictionary().get("label")
+        return user_dict
     return None
 
 def get_user_by_id(id):
@@ -34,3 +33,8 @@ def get_user_by_id(id):
         return user.to_dictionary()
     return None
 
+def get_user_by_label(label):
+    user = UserEntity.find_by_label(label)
+    if user:
+        return user.to_dictionary()
+    return None
