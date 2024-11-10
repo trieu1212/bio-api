@@ -22,13 +22,13 @@ def login_face_biometric(image):
     try:
         embedding_obj = DeepFace.represent(image, model_name="Facenet")
         if not embedding_obj:
-            return jsonify({'error': 'No face detected'}), 400
+            return None, 0
         embedding = embedding_obj[0]["embedding"]
         if isinstance(embedding, dict):
-            return jsonify({'error': 'Embedding extraction failed: Unexpected format'}), 500
+            return None, 0
         embedding = normalize_embedding(np.array(embedding, dtype=float))
     except Exception as e:
-        return jsonify({'error': f'Embedding extraction failed: {str(e)}'}), 500
+        return None, 0
 
     best_match = None
     highest_similarity = 0
@@ -61,4 +61,4 @@ def login_face_biometric(image):
     if highest_similarity >= THRESHOLD:
         return best_match, highest_similarity
     else:
-        return None, highest_similarity
+        return None, 0

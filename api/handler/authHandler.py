@@ -16,7 +16,7 @@ def verify_face_login_biometrics():
     image = request.files['image']
     
     best_match, highest_similarity = login_face_biometric(image)
-
+    print(highest_similarity)
     if highest_similarity >= THRESHOLD:
             user_id = best_match.split('_')[0]
             user = userService.get_user_by_id(user_id)
