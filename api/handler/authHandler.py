@@ -4,20 +4,16 @@ from flask import jsonify, request
 import cv2
 import traceback
 import numpy as np
-import json
 from deepface import DeepFace
-from keras._tf_keras.keras.models import load_model
 from config import Config
 from api.service import userService
-from model.face_recognize import detect_and_extract_embedding
 from sklearn.metrics.pairwise import cosine_similarity
 from model.face_recognize import train_embeddings, normalize_embedding
 
 
 DATA_DIR = '/home/trieu/project/bio-python/data/faces'
 EMBEDDINGS_PATH = Config.EMBEDDINGS_DIR
-THRESHOLD = 0.3
-
+THRESHOLD = float(Config.THRESHOLD)
 
 def verify_face():
     if 'image' not in request.files:
@@ -68,7 +64,6 @@ def verify_face():
     print(f"Best match: {best_match}, similarity: {highest_similarity}")
 
     if highest_similarity > THRESHOLD:
-        train_embeddings(best_match.split('_')[0], best_match.split('_')[1], [image])
         return jsonify({
             'status': 'success',
             'user': best_match,

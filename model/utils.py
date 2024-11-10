@@ -1,34 +1,11 @@
 import cv2
 import numpy as np
-import pickle
 import os
 from deepface import DeepFace
 from config import Config
 
 PREPROCCESS_DIR = Config.PREPROCESS_DIR
 FACES_DIR = Config.FACES_DIR
-def predict_face(model, image):
-    image = preprocess_image(image)
-    image = np.expand_dims(image, axis=0)  
-    predictions = model.predict(image)
-    print(predictions)  
-    predicted_label = np.argmax(predictions)  
-    return predicted_label
-
-
-def predict_face_with_probabilities(model, image):
-    image = cv2.resize(image, (224, 224))
-    image = np.expand_dims(image, axis=0)
-    predictions = model.predict(image)
-    print("Predictions:", predictions)  
-    predicted_label = np.argmax(predictions)
-    return predicted_label
-
-def preprocess_image(image):
-    image = cv2.resize(image, (224, 224))  
-    image = image / 255.0  
-    return image
-
 
 def preprocess_image(id, username):
     input_dir = os.path.join('data/faces', f"{id}_{username}")
@@ -39,8 +16,8 @@ def preprocess_image(id, username):
 
     existing_files = os.listdir(user_dir)
     existing_files = [f for f in existing_files if f.endswith('.jpg')]
-    existing_indices = [int(f.split('.')[0]) for f in existing_files]  # Chỉnh sửa cách lấy chỉ số
-    next_index = max(existing_indices, default=0) + 1  # Lấy chỉ số tiếp theo
+    existing_indices = [int(f.split('.')[0]) for f in existing_files]  
+    next_index = max(existing_indices, default=0) + 1 
 
     for i, image_file in enumerate(image_files):
         try:
@@ -60,11 +37,10 @@ def preprocess_image(id, username):
                         if len(face_img.shape) == 2:  
                             face_img = cv2.cvtColor(face_img, cv2.COLOR_GRAY2RGB)
                             
-                        # Lưu ảnh khuôn mặt vào tệp với tên tiếp theo
                         image_path = os.path.join(user_dir, f"{next_index}.jpg")
                         if cv2.imwrite(image_path, face_img):
                             print(f"Đã lưu ảnh khuôn mặt vào {image_path}")
-                            next_index += 1  # Cập nhật lại chỉ số cho ảnh tiếp theo
+                            next_index += 1  
                         else:
                             print(f"Lỗi khi lưu ảnh khuôn mặt vào {image_path}")
                     else:
@@ -81,8 +57,8 @@ def save_user_pics(id, username, images):
 
     existing_files = os.listdir(user_dir)
     existing_files = [f for f in existing_files if f.endswith('.jpg')]
-    existing_indices = [int(f.split('.')[0]) for f in existing_files]  # Chỉnh sửa cách lấy chỉ số
-    next_index = max(existing_indices, default=0) + 1  # Lấy chỉ số tiếp theo
+    existing_indices = [int(f.split('.')[0]) for f in existing_files]  
+    next_index = max(existing_indices, default=0) + 1  
 
     for i, image_file in enumerate(images):
         try:
@@ -91,11 +67,10 @@ def save_user_pics(id, username, images):
                 print(f"Lỗi khi đọc ảnh {i + 1}")
                 continue
 
-            # Lưu ảnh vào tệp với tên tiếp theo
             image_path = os.path.join(user_dir, f"{next_index}.jpg")
             if cv2.imwrite(image_path, img):
                 print(f"Đã lưu ảnh vào {image_path}")
-                next_index += 1  # Cập nhật lại chỉ số cho ảnh tiếp theo
+                next_index += 1  
             else:
                 print(f"Lỗi khi lưu ảnh vào {image_path}")
         except Exception as e:
