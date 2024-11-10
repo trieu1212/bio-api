@@ -16,7 +16,7 @@ class UserEntity:
 
     def to_dictionary(self):
          return {
-            "_id": self._id,
+            "_id": str(self._id),
             "username": self.username,
             "password": self.password,
             "email": self.email,
@@ -25,10 +25,13 @@ class UserEntity:
         }
     
     def save(self, update=False):
+        data = self.to_dictionary()
+        data.pop('_id', None)  
+
         if update:
-            users_collection.update_one({"_id": self._id}, {"$set": self.to_dictionary()})
+            users_collection.update_one({"_id": self._id}, {"$set": data})
         else:
-            users_collection.replace_one({"_id": self._id}, self.to_dictionary(), upsert=True)
+            users_collection.replace_one({"_id": self._id}, data, upsert=True)
 
     
     @staticmethod
@@ -46,8 +49,8 @@ class UserEntity:
         return None
     
     @staticmethod
-    def find_by_username(username):
-        user = users_collection.find_one({"username": username})
+    def find_by_email(email):
+        user = users_collection.find_one({"email": email})
         if user:
             return UserEntity(user["username"], user["password"], user["email"], user["role"], user["label"], user["_id"])
         return None

@@ -1,74 +1,32 @@
-import pickle
 import os
+from utils.jwt import gen_jwt_token
+from utils.hashPassword import check_password
 from flask import jsonify, request
-import cv2
-import traceback
-import numpy as np
-from deepface import DeepFace
 from config import Config
 from api.service import userService
-from sklearn.metrics.pairwise import cosine_similarity
-from model.face_recognize import train_embeddings, normalize_embedding
+from model.face_recognize import train_embeddings
+from api.service.authService import login_face_biometric
 
-
-DATA_DIR = '/home/trieu/project/bio-python/data/faces'
 EMBEDDINGS_PATH = Config.EMBEDDINGS_DIR
 THRESHOLD = float(Config.THRESHOLD)
 
-def verify_face():
+def verify_face_login_biometrics():
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
-
     image = request.files['image']
-    image = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
-    if image is None:
-        return jsonify({'error': 'Invalid image format'}), 400
+    
+    best_match, highest_similarity = login_face_biometric(image)
 
-    try:
-        embedding_obj = DeepFace.represent(image, model_name="Facenet")
-        if not embedding_obj:
-            return jsonify({'error': 'No face detected'}), 400
-        embedding = embedding_obj[0]["embedding"]
-        if isinstance(embedding, dict):
-            return jsonify({'error': 'Embedding extraction failed: Unexpected format'}), 500
-        embedding = normalize_embedding(np.array(embedding, dtype=float))
-    except Exception as e:
-        return jsonify({'error': f'Embedding extraction failed: {str(e)}'}), 500
-
-    best_match = None
-    highest_similarity = 0
-
-    for filename in os.listdir(EMBEDDINGS_PATH):
-        if filename.endswith(".pkl"):
-            file_path = os.path.join(EMBEDDINGS_PATH, filename)
-            try:
-                with open(file_path, 'rb') as f:
-                    known_embeddings = pickle.load(f)
-
-                for known_embedding in known_embeddings:
-                    if isinstance(known_embedding, dict):
-                        print(f"Invalid format in {filename}, skipping this embedding: {known_embedding}")
-                        continue
-
-                    known_embedding = normalize_embedding(np.array(known_embedding, dtype=float))
-                    similarity = float(cosine_similarity([embedding], [known_embedding])[0][0])
-                    if similarity > highest_similarity:
-                        highest_similarity = similarity
-                        best_match = filename[:-4] 
-
-            except Exception as e:
-                print(f"Error loading or comparing embeddings from {filename}: {e}")
-                traceback.print_exc()
-                continue  
-
-    print(f"Best match: {best_match}, similarity: {highest_similarity}")
-
-    if highest_similarity > THRESHOLD:
-        return jsonify({
-            'status': 'success',
-            'user': best_match,
-            'similarity': highest_similarity
-        }), 200
+    if highest_similarity >= THRESHOLD:
+            user_id = best_match.split('_')[0]
+            user = userService.get_user_by_id(user_id)
+            token = gen_jwt_token(user)
+            return jsonify({
+                'status': 'success',
+                'user': user,
+                'token': token,
+                'similarity': highest_similarity
+            }), 200
     else:
         return jsonify({
             'status': 'failure',
@@ -98,3 +56,25 @@ def register_face():
     userService.update_label_user(user_folder, id)
     
     return jsonify({'message': 'Face registered successfully'}), 200
+
+def login():
+    email = request.form.get('email')
+    password = request.form.get('password')
+    if not email:
+        return jsonify({'error': 'No email provided'}), 400
+    if not password:
+        return jsonify({'error': 'No password provided'}), 400
+
+    user = userService.get_user_by_email(email)
+    if user is None:
+        return jsonify({'error': 'User not found'}), 400
+    
+    if not check_password(password, user['password'].encode('utf-8')):
+        return jsonify({'error': 'Invalid password'}), 400
+
+    token = gen_jwt_token(user)
+    return jsonify({
+        'status': 'success',
+        'user': user,
+        'token': token
+    }), 200

@@ -38,3 +38,9 @@ def get_user_by_label(label):
     if user:
         return user.to_dictionary()
     return None
+
+def get_user_by_email(email):
+    user = UserEntity.find_by_email(email)
+    if user:
+        return user.to_dictionary()
+    return None

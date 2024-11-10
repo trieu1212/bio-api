@@ -1,5 +1,6 @@
 from flask import jsonify, request
 from api.service import userService
+from utils.hashPassword import hash_password
 
 def create_user():
     username = request.form.get('username')
@@ -16,9 +17,15 @@ def create_user():
     if not role:
         return jsonify({'error': 'No role provided'}), 400
 
+    user = userService.get_user_by_email(email)
+    if user:
+        return jsonify({'error': 'Email already exists'}), 400  
+    
+    hashed_password = hash_password(password).decode('utf-8')
+
     user_data = {
         'username': username,
-        'password': password,
+        'password': hashed_password,
         'email': email,
         'role': role
     }
