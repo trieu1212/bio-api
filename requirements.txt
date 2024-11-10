@@ -10,5 +10,6 @@ Pillow
 mtcnn
 tf-keras
 deepface
+pyjwt
 # tensorflow==1.3.0 
 # keras==2.1.2

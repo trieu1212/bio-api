@@ -16,7 +16,7 @@ class UserEntity:
 
     def to_dictionary(self):
          return {
-            "_id": self._id,
+            "_id": str(self._id),
             "username": self.username,
             "password": self.password,
             "email": self.email,

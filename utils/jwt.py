@@ -1,16 +1,27 @@
+import jwt
 from datetime import datetime, timedelta
 from api.entity.userEntity import UserEntity
+from config import Config
 
-def gen_jwt_token(user: UserEntity) -> str:
+SECRET_KEY = Config.SECRET_KEY
+
+def gen_jwt_token(user: dict) -> str:
     payload = {
-        'user_id': user.id,
-        'label': user.label,
+        'user_id': str(user['_id']),     
+        'label': user['label'],
         'exp': datetime.utcnow() + timedelta(days=1)
     }
-    return payload
+    token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')     
+    return token
 
 
 def verify_jwt_token(token: str) -> dict:
-    return token
+    try:
+        decoded_payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return decoded_payload
+    except jwt.ExpiredSignatureError:
+        return {"error": "Token has expired"}
+    except jwt.InvalidTokenError:
+        return {"error": "Invalid token"}
 
 
