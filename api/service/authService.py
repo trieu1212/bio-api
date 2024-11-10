@@ -20,7 +20,7 @@ def login_face_biometric(image):
         return None, 0
 
     try:
-        embedding_obj = DeepFace.represent(image, model_name="Facenet")
+        embedding_obj = DeepFace.represent(image, model_name="Facenet", enforce_detection=False)
         if not embedding_obj:
             print("No face detected")
             return None, 0
@@ -30,6 +30,8 @@ def login_face_biometric(image):
             return None, 0
         embedding = normalize_embedding(np.array(embedding, dtype=float))
     except Exception as e:
+        print(f"Error generating embedding: {e}")
+        traceback.print_exc()
         return None, 0
 
     best_match = None
