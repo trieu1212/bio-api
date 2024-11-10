@@ -17,14 +17,16 @@ THRESHOLD = float(Config.THRESHOLD)
 def login_face_biometric(image):
     image = cv2.imdecode(np.frombuffer(image.read(), np.uint8), cv2.IMREAD_COLOR)
     if image is None:
-        return jsonify({'error': 'Invalid image format'}), 400
+        return None, 0
 
     try:
         embedding_obj = DeepFace.represent(image, model_name="Facenet")
         if not embedding_obj:
+            print("No face detected")
             return None, 0
         embedding = embedding_obj[0]["embedding"]
         if isinstance(embedding, dict):
+            print(f"Invalid format in embedding: {embedding}")
             return None, 0
         embedding = normalize_embedding(np.array(embedding, dtype=float))
     except Exception as e:
