@@ -53,9 +53,17 @@ class UserEntity:
     @staticmethod
     def find_by_email(email):
         user = users_collection.find_one({"email": email})
-        if user:
-            return UserEntity(user["firstName"], user["lastName"], user["phone"], user["password"], user["email"], user["label"], user["_id"])
-        return None
+        if not user:
+            return None
+        return UserEntity(
+            firstName=user.get("firstName", ""),
+            lastName=user.get("lastName", ""),
+            phone=user.get("phone", ""),
+            password=user.get("password", ""),
+            email=user.get("email", ""),
+            label=user.get("label", None),
+            _id=user.get("_id", None)
+        )
     
     @staticmethod
     def update_password(id, password):

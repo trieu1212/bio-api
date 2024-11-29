@@ -109,7 +109,7 @@ def register_face_v2():
         return jsonify({'error': str(e)}), 400
     
 def verify_face():
-    # try:
+    try:
         data = request.json
         user_id = data['userId']
         user_email = data['userEmail']
@@ -122,14 +122,18 @@ def verify_face():
 
         highest_similarity = 0
         best_match = None
-        for saved_embedding in saved_embeddings:
-            similarity = cosine_similarity([embeddings], [saved_embedding])[0][0]
-            if similarity > highest_similarity:
-                highest_similarity = similarity
-                best_match = user_id  
+        similarities = cosine_similarity([embeddings], saved_embeddings).flatten()
+        best_match_index = similarities.argmax()
+        highest_similarity = similarities[best_match_index]
+        print(f"best_match_index: {best_match_index}")
+        # for saved_embedding in saved_embeddings:
+        #     similarity = cosine_similarity([embeddings], [saved_embedding])[0][0]
+        #     if similarity > highest_similarity:
+        #         highest_similarity = similarity
+        #         best_match = user_id  
 
         if highest_similarity >= THRESHOLD:
-            user = userService.get_user_by_id(best_match)
+            user = userService.get_user_by_id(user_id)
             return jsonify({
                 'verified': True,
                 'user': user,
@@ -142,5 +146,5 @@ def verify_face():
                 'similarity': highest_similarity
             }), 400
         
-    # except Exception as e:
-    #     return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400

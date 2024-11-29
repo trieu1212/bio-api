@@ -14,6 +14,7 @@ def create_user():
         return jsonify({'error': 'Missing fields'}), 400
 
     user = userService.get_user_by_email(email)
+    print(user)
     if user:
         return jsonify({'error': 'Email already exists'}), 400  
     
