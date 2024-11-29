@@ -9,7 +9,7 @@ from api.service import userService
 from model.face_recognize import train_embeddings
 from api.service.authService import login_face_biometric
 from sklearn.metrics.pairwise import cosine_similarity
-
+from model.utils import cosine_distance
 EMBEDDINGS_PATH = Config.EMBEDDINGS_DIR
 THRESHOLD = float(Config.THRESHOLD)
 
@@ -120,30 +120,26 @@ def verify_face():
         with open(file_path, 'rb') as f:
             saved_embeddings = pickle.load(f)
 
-        highest_similarity = 0
-        best_match = None
-        similarities = cosine_similarity([embeddings], saved_embeddings).flatten()
-        best_match_index = similarities.argmax()
-        highest_similarity = similarities[best_match_index]
-        print(f"best_match_index: {best_match_index}")
+        similarities = [cosine_distance(embeddings, embedding) for embedding in saved_embeddings]
+        avg_similarity = (sum(similarities) / len(similarities)) if similarities else 0
         # for saved_embedding in saved_embeddings:
         #     similarity = cosine_similarity([embeddings], [saved_embedding])[0][0]
         #     if similarity > highest_similarity:
         #         highest_similarity = similarity
         #         best_match = user_id  
 
-        if highest_similarity >= THRESHOLD:
+        if avg_similarity >= THRESHOLD:
             user = userService.get_user_by_id(user_id)
             return jsonify({
                 'verified': True,
                 'user': user,
-                'similarity': highest_similarity
+                'similarity': avg_similarity
             }), 200
         else:
             return jsonify({
                 'verified': False,
                 'message': 'User not recognized',
-                'similarity': highest_similarity
+                'similarity': avg_similarity
             }), 400
         
     except Exception as e:
