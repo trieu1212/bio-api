@@ -3,17 +3,19 @@ from api.entity.userEntity import UserEntity
 
 def create_user(user_data):
     new_user = UserEntity(
-        username=user_data["username"],
+        firstName =user_data["firstName"],
+        lastName=user_data["lastName"],
+        phone=user_data["phone"],
         password=user_data["password"],
         email=user_data["email"],
-        role=user_data["role"]
     )
     new_user.save()
     return {
         "id": str(new_user._id), 
-        "username": new_user.username,
+        "firstName": new_user.firstName,
+        "lastName": new_user.lastName,
         "email": new_user.email,
-        "role": new_user.role
+        "phone": new_user.phone
     }
 
 
@@ -23,7 +25,7 @@ def update_label_user(label, id):
         user.label = label
         user.save(update=True)
         user_dict = user.to_dictionary()
-        id, username, email, role, label = user.to_dictionary().get("_id"), user.to_dictionary().get("username"), user.to_dictionary().get("email"), user.to_dictionary().get("role"), user.to_dictionary().get("label")
+        id, firstname, lastName, email, phone, label = user.to_dictionary().get("_id"), user.to_dictionary().get("firstName"), user.to_dictionary().get("lastName") ,user.to_dictionary().get("email"), user.to_dictionary().get("phone"), user.to_dictionary().get("label")
         return user_dict
     return None
 

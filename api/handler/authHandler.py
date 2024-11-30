@@ -1,4 +1,6 @@
 import os
+import pickle
+import numpy as np
 from utils.jwt import gen_jwt_token
 from utils.hashPassword import check_password
 from flask import jsonify, request
@@ -6,7 +8,8 @@ from config import Config
 from api.service import userService
 from model.face_recognize import train_embeddings
 from api.service.authService import login_face_biometric
-
+from sklearn.metrics.pairwise import cosine_similarity
+from model.utils import cosine_distance
 EMBEDDINGS_PATH = Config.EMBEDDINGS_DIR
 THRESHOLD = float(Config.THRESHOLD)
 
@@ -58,8 +61,9 @@ def register_face():
     return jsonify({'message': 'Face registered successfully'}), 200
 
 def login():
-    email = request.form.get('email')
-    password = request.form.get('password')
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
     if not email:
         return jsonify({'error': 'No email provided'}), 400
     if not password:
@@ -78,3 +82,65 @@ def login():
         'user': user,
         'token': token
     }), 200
+
+def register_face_v2():
+    try:
+        data = request.json
+        user_id = data['userId']
+        user_name = data['userName']
+        user_email = data['userEmail']
+        embeddings = data['faceEmbeddings']  
+
+        embeddings_values = list(embeddings.values())  
+
+        user = userService.get_user_by_id(user_id)
+        if user is None:
+            return jsonify({'error': 'User not found'}), 400
+        
+        userService.update_label_user(f"{user_id}_{user_email}", user_id)
+
+        file_path = os.path.join(EMBEDDINGS_PATH, f"{user_id}_{user_email}.pkl")
+
+        with open(file_path, 'wb') as f:
+            pickle.dump(embeddings_values, f)  
+
+        return jsonify({'message': 'Embeddings saved successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+    
+def verify_face():
+    try:
+        data = request.json
+        user_id = data['userId']
+        user_email = data['userEmail']
+        embeddings = data['embeddings']
+
+        file_name = f"{user_id}_{user_email}.pkl"
+        file_path = os.path.join(EMBEDDINGS_PATH, file_name)
+        with open(file_path, 'rb') as f:
+            saved_embeddings = pickle.load(f)
+
+        similarities = [cosine_distance(embeddings, embedding) for embedding in saved_embeddings]
+        avg_similarity = (sum(similarities) / len(similarities)) if similarities else 0
+        # for saved_embedding in saved_embeddings:
+        #     similarity = cosine_similarity([embeddings], [saved_embedding])[0][0]
+        #     if similarity > highest_similarity:
+        #         highest_similarity = similarity
+        #         best_match = user_id  
+
+        if avg_similarity >= THRESHOLD:
+            user = userService.get_user_by_id(user_id)
+            return jsonify({
+                'verified': True,
+                'user': user,
+                'similarity': avg_similarity
+            }), 200
+        else:
+            return jsonify({
+                'verified': False,
+                'message': 'User not recognized',
+                'similarity': avg_similarity
+            }), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400

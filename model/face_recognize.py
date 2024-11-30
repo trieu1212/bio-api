@@ -6,10 +6,8 @@ from deepface import DeepFace
 from model.utils import save_user_pics, preprocess_image
 from config import Config
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PREPROCESS_DIR = Config.PREPROCESS_DIR
 FACES_DIR = Config.FACES_DIR
-MODEL_PATH = 'saved_models/facenet_keras.h5'
 EMBEDDINGS_PATH = 'embeddings'
 THRESHOLD = Config.THRESHOLD
 
@@ -37,14 +35,13 @@ def train_embeddings(user_id, username, images, embeddings_path=EMBEDDINGS_PATH)
     if embeddings:
         average_embedding = calculate_average_embedding(embeddings)
         embeddings = [average_embedding]
-        
-        embeddings_file = os.path.join(embeddings_path, f"{user_id}_{username}.pkl")
         os.makedirs(embeddings_path, exist_ok=True)
+        embeddings_file = os.path.join(embeddings_path, f"{user_id}_{username}.pkl")
         with open(embeddings_file, 'wb') as f:
             pickle.dump(embeddings, f)
         print(f"Đã lưu embeddings vào {embeddings_file}")
     else:
-        print("Không có embeddings để lưu.")
+        print("Không có embeddings hợp lệ để lưu.")
 
     return f"{user_id}_{username}", embeddings
 
